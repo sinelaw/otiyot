@@ -1,20 +1,17 @@
 // Game configuration
 const VOWELS = [
-  { char: '\u05B8', name: 'kamatz', display: 'קמץ (a)' },
-  { char: '\u05B7', name: 'patach', display: 'פתח (a)' },
-  { char: '\u05B6', name: 'segol', display: 'סגול (e)' },
-  { char: '\u05B5', name: 'tzere', display: 'צירה (e)' },
-  { char: '\u05B4', name: 'chirik', display: 'חיריק (i)' },
-  { char: '\u05B9', name: 'holam_chaser', display: 'חולם חסר (o)' },
-  { char: 'ו\u05B9', name: 'holam_maleh', display: 'חולם מלא (o)' },
-  { char: '\u05BB', name: 'kubutz', display: 'קובוץ (u)' },
-  { char: 'וּ', name: 'shuruk', display: 'שורוק (u)' },
+  { char: '\u05B8', name: 'קמץ' },
+  { char: '\u05B7', name: 'פתח' },
+  { char: '\u05B6', name: 'סגול' },
+  { char: '\u05B5', name: 'צירה' },
+  { char: '\u05B4', name: 'חיריק' },
+  { char: '\u05B9', name: 'חולם חסר' },
+  { char: 'ו\u05B9', name: 'חולם מלא' },
+  { char: '\u05BB', name: 'קובוץ' },
+  { char: 'וּ', name: 'שורוק' },
 ];
 
-const BASE_LETTERS = ['א', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'ל', 'מ', 'נ', 'ס', 'ע', 'צ', 'ק', 'ר', 'ש', 'ת'];
-const DAGESH_LETTERS = ['ב', 'בּ', 'כ', 'כּ', 'פ', 'פּ'];
-const FINAL_LETTERS = ['ך', 'ם', 'ן', 'ף', 'ץ'];
-
+const ALL_LETTERS = ['א', 'ב', 'בּ', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'כ', 'כּ', 'ך', 'ל', 'מ', 'ם', 'נ', 'ן', 'ס', 'ע', 'פ', 'פּ', 'ף', 'צ', 'ץ', 'ק', 'ר', 'ש', 'ת'];
 const NUM_OPTIONS = 4;
 
 // Game state
@@ -26,23 +23,13 @@ let totalScore = 0;
 let isAudioPlaying = false;
 
 // DOM elements
-let configScreen;
-let gameScreen;
-let vowelsOptionsDiv;
-let startGameBtn;
-let playSoundBtn;
-let optionsGrid;
-let messageBox;
-let correctScoreSpan;
-let totalScoreSpan;
-let playIcon;
-let loadingSpinner;
-let filterError;
+let configScreen, gameScreen, vowelsOptionsDiv, lettersOptionsDiv, startGameBtn, playSoundBtn, optionsGrid, messageBox, correctScoreSpan, totalScoreSpan, playIcon, loadingSpinner, filterError;
 
 function initDOMReferences() {
   configScreen = document.getElementById('config-screen');
   gameScreen = document.getElementById('game-screen');
   vowelsOptionsDiv = document.getElementById('vowels-options');
+  lettersOptionsDiv = document.getElementById('letters-options');
   startGameBtn = document.getElementById('start-game-btn');
   playSoundBtn = document.getElementById('play-sound-btn');
   optionsGrid = document.getElementById('options-grid');
@@ -55,12 +42,16 @@ function initDOMReferences() {
 }
 
 async function loadManifest() {
-  const response = await fetch('./audio_manifest.json');
-  if (!response.ok) {
-    throw new Error('Failed to load audio_manifest.json');
+  try {
+    const response = await fetch('./audio_manifest.json');
+    if (!response.ok) throw new Error('Failed to load audio_manifest.json');
+    audioManifest = await response.json();
+    console.log('Audio manifest loaded successfully');
+  } catch (error) {
+    console.error(error);
+    messageBox.textContent = 'שגיאה חמורה בטעינת המשחק. נסה לרענן את הדף.';
+    startGameBtn.disabled = true;
   }
-  audioManifest = await response.json();
-  console.log('Audio manifest loaded successfully');
 }
 
 function playLocalAudio(syllable) {
@@ -73,28 +64,21 @@ function playLocalAudio(syllable) {
   }
 
   try {
-    const audioUrl = `./audio/${filename}`;
-    const audio = new Audio(audioUrl);
-
+    const audio = new Audio(`./audio/${filename}`);
     audio.onplaying = () => {
       isAudioPlaying = true;
-      document.querySelectorAll('#options-grid button').forEach(btn => btn.disabled = true);
-      playSoundBtn.disabled = true;
       setLoading(false);
     };
-
     audio.onended = () => {
       isAudioPlaying = false;
       document.querySelectorAll('#options-grid button').forEach(btn => btn.disabled = false);
       playSoundBtn.disabled = false;
     };
-
     audio.onerror = (e) => {
-      console.error(`Error loading audio file: ${audioUrl}`, e);
+      console.error(`Error loading audio file`, e);
       messageBox.textContent = 'שגיאה בטעינת קובץ האודיו.';
       setLoading(false);
     };
-
     audio.play();
   } catch (e) {
     console.error('Audio playback error:', e);
@@ -104,40 +88,24 @@ function playLocalAudio(syllable) {
 }
 
 function setLoading(isLoading) {
-  if (isLoading) {
-    playIcon.classList.add('hidden');
-    loadingSpinner.classList.remove('hidden');
-    playSoundBtn.disabled = true;
-    optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = true);
-  } else {
-    playIcon.classList.remove('hidden');
-    loadingSpinner.classList.add('hidden');
-    if (!isAudioPlaying) {
-      playSoundBtn.disabled = false;
-      if (!gameScreen.classList.contains('hidden')) {
-        optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = false);
-      }
-    }
-  }
+  playIcon.classList.toggle('hidden', isLoading);
+  loadingSpinner.classList.toggle('hidden', !isLoading);
+  playSoundBtn.disabled = isLoading;
+  optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = isLoading);
 }
 
 function playCurrentSyllable() {
   if (!currentSyllable || isAudioPlaying) return;
-
   setLoading(true);
-  messageBox.textContent = 'מנגן צליל...';
-
+  messageBox.textContent = '...מאזינים';
   playLocalAudio(currentSyllable);
-  messageBox.textContent = 'לחץ/י על התשובה הנכונה:';
 }
 
 function updateAllowedSyllables() {
   const selectedVowels = Array.from(document.querySelectorAll('#vowels-options input:checked')).map(cb => cb.value);
-  const includeDagesh = document.getElementById('include-dagesh').checked;
-  const includeFinal = document.getElementById('include-final').checked;
-  const includeBase = document.getElementById('include-base').checked;
+  const selectedLetters = Array.from(document.querySelectorAll('#letters-options input:checked')).map(cb => cb.value);
 
-  if (selectedVowels.length === 0) {
+  if (selectedVowels.length === 0 || selectedLetters.length === 0) {
     startGameBtn.disabled = true;
     filterError.classList.remove('hidden');
     allowedSyllables = [];
@@ -145,158 +113,133 @@ function updateAllowedSyllables() {
   }
 
   filterError.classList.add('hidden');
-  const potentialSyllables = [];
-
-  let allowedConsonants = [];
-  if (includeBase) {
-    allowedConsonants.push(...BASE_LETTERS);
-  }
-  if (includeDagesh) {
-    allowedConsonants.push(...DAGESH_LETTERS);
-  } else {
-    allowedConsonants.push('ב', 'כ', 'פ');
-    allowedConsonants = allowedConsonants.filter(c => c !== 'בּ' && c !== 'כּ' && c !== 'פּ');
-  }
-  if (includeFinal) {
-    allowedConsonants.push(...FINAL_LETTERS);
-  }
-  allowedConsonants = [...new Set(allowedConsonants)];
-
-  for (const consonant of allowedConsonants) {
+  
+  const potentialSyllables = new Set();
+  for (const consonant of selectedLetters) {
     for (const vowel of selectedVowels) {
-      if (consonant === 'ו' && (vowel === 'וּ' || vowel === 'ו\u05B9')) {
-        potentialSyllables.push(vowel);
-      } else if (consonant === 'ו') {
-        continue;
-      } else if (vowel === 'וּ' || vowel === 'ו\u05B9') {
-        continue;
-      } else {
-        potentialSyllables.push(consonant + vowel);
-      }
+      // Skip creating syllables with 'vav' as a consonant and a vowel that uses 'vav'
+      if (consonant === 'ו' && (vowel === 'וּ' || vowel === 'ו\u05B9')) continue;
+      // Skip adding 'shuruk' or 'holam maleh' as a vowel to other consonants
+      if (vowel === 'וּ' || vowel === 'ו\u05B9') continue;
+      potentialSyllables.add(consonant + vowel);
     }
   }
 
-  if (selectedVowels.includes('ו\u05B9')) {
-    potentialSyllables.push('ו\u05B9');
-  }
-  if (selectedVowels.includes('וּ')) {
-    potentialSyllables.push('וּ');
-  }
+  // Add 'vav' based vowels if they are selected
+  if (selectedVowels.includes('ו\u05B9')) potentialSyllables.add('ו\u05B9');
+  if (selectedVowels.includes('וּ')) potentialSyllables.add('וּ');
 
-  allowedSyllables = [...new Set(potentialSyllables)]
-    .filter(s => s)
-    .filter(s => Object.prototype.hasOwnProperty.call(audioManifest, s));
-
-  if (allowedSyllables.length === 0) {
-    startGameBtn.disabled = true;
-    messageBox.textContent = 'אין הברות תואמות עם ניקודים וקבצי אודיו זמינים.';
+  allowedSyllables = [...potentialSyllables].filter(s => audioManifest[s]);
+  
+  startGameBtn.disabled = allowedSyllables.length < NUM_OPTIONS;
+  if (startGameBtn.disabled) {
+    filterError.textContent = `לא נמצאו מספיק הברות (${allowedSyllables.length} מתוך ${NUM_OPTIONS} דרושות). נסה אפשרויות סינון אחרות.`;
     filterError.classList.remove('hidden');
   } else {
-    startGameBtn.disabled = false;
-    messageBox.textContent = "לחץ/י על 'התחל משחק'!";
+    filterError.classList.add('hidden');
   }
-  console.log('Allowed syllables:', allowedSyllables);
 }
 
 function nextRound() {
-  if (allowedSyllables.length === 0) {
-    messageBox.textContent = 'שגיאה: אין הברות נבחרות.';
+  if (allowedSyllables.length < NUM_OPTIONS) {
+    backToConfig();
+    alert('אין מספיק אותיות וניקודים כדי להמשיך. אנא בחר אפשרויות נוספות.');
     return;
   }
 
   const options = new Set();
-
-  while (options.size < NUM_OPTIONS && options.size < allowedSyllables.length) {
-    const randomIndex = Math.floor(Math.random() * allowedSyllables.length);
-    const randomSyllable = allowedSyllables[randomIndex];
-    options.add(randomSyllable);
+  while (options.size < NUM_OPTIONS) {
+    options.add(allowedSyllables[Math.floor(Math.random() * allowedSyllables.length)]);
   }
 
-  const optionsArray = Array.from(options).sort(() => Math.random() - 0.5);
-
-  const correctIndex = Math.floor(Math.random() * optionsArray.length);
-  currentSyllable = optionsArray[correctIndex];
+  const optionsArray = [...options].sort(() => Math.random() - 0.5);
+  currentSyllable = optionsArray[Math.floor(Math.random() * optionsArray.length)];
 
   optionsGrid.innerHTML = '';
   optionsArray.forEach(syllable => {
     const btn = document.createElement('button');
     btn.textContent = syllable;
-    btn.className = 'game-option flex items-center justify-center bg-white text-gray-800 rounded-xl shadow-md border-b-8 hover:bg-yellow-100 disabled:opacity-50';
-    btn.onclick = () => checkAnswer(syllable);
+    btn.className = 'game-option';
+    btn.onclick = () => checkAnswer(syllable, btn);
     btn.disabled = true;
     optionsGrid.appendChild(btn);
   });
 
-  messageBox.textContent = 'לחץ/י על הרמקול כדי לשמוע את ההברה';
+  messageBox.textContent = 'לחץ על הרמקול!';
   playSoundBtn.disabled = false;
 }
 
-function checkAnswer(chosenSyllable) {
-  optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = true);
+function checkAnswer(chosenSyllable, btn) {
+  optionsGrid.querySelectorAll('button').forEach(b => b.disabled = true);
   playSoundBtn.disabled = true;
-
   totalScore++;
-  let isCorrect = false;
 
   if (chosenSyllable === currentSyllable) {
     correctScore++;
-    messageBox.innerHTML = '<span class="text-green-600">כל הכבוד! נכון! <i class="fas fa-check-circle"></i></span>';
-    isCorrect = true;
+    messageBox.innerHTML = 'כל הכבוד! נכון!';
+    btn.classList.add('correct');
   } else {
-    messageBox.innerHTML = `<span class="text-red-600">אופס! טעות. <i class="fas fa-times-circle"></i></span><br>התשובה הנכונה: <span class="text-3xl font-extrabold text-blue-600">${currentSyllable}</span>`;
+    messageBox.innerHTML = `אופס! התשובה הנכונה: <span class="correct-answer">${currentSyllable}</span>`;
+    btn.classList.add('incorrect');
+    optionsGrid.querySelectorAll('button').forEach(b => {
+      if (b.textContent === currentSyllable) b.classList.add('correct');
+    });
   }
 
-  optionsGrid.querySelectorAll('button').forEach(btn => {
-    if (btn.textContent === currentSyllable) {
-      btn.classList.add('bg-green-300', 'border-green-600');
-      btn.classList.remove('bg-white', 'border-yellow-400', 'hover:bg-yellow-100');
-    } else if (btn.textContent === chosenSyllable && !isCorrect) {
-      btn.classList.add('bg-red-300', 'border-red-600');
-      btn.classList.remove('bg-white', 'border-yellow-400', 'hover:bg-yellow-100');
-    }
-  });
+  correctScoreSpan.textContent = correctScore;
+  totalScoreSpan.textContent = totalScore;
 
-  correctScoreSpan.textContent = correctScore.toString();
-  totalScoreSpan.textContent = totalScore.toString();
+  setTimeout(nextRound, 2000);
+}
 
-  setTimeout(nextRound, 2500);
+function createCheckbox(item, groupName, container, defaultChecked = true) {
+    const div = document.createElement('div');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = `${groupName}-${item.char || item}`;
+    input.value = item.char || item;
+    input.checked = defaultChecked;
+    input.onchange = updateAllowedSyllables;
+    
+    const label = document.createElement('label');
+    label.htmlFor = input.id;
+    label.className = 'checkbox-label';
+    label.textContent = item.name || item;
+
+    div.appendChild(input);
+    div.appendChild(label);
+    container.appendChild(div);
 }
 
 function initializeVowelsUI() {
-  VOWELS.forEach(vowel => {
-    const container = document.createElement('div');
-    container.className = 'flex items-center space-x-2 space-x-reverse';
+  VOWELS.forEach(vowel => createCheckbox(vowel, 'vowel', vowelsOptionsDiv));
+}
 
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.id = `vowel-${vowel.char.replace(/[^\w]/g, '_')}`;
-    input.value = vowel.char;
-    input.className = 'hidden';
-    input.checked = true;
-    input.onchange = updateAllowedSyllables;
+function initializeLettersUI() {
+  ALL_LETTERS.forEach(letter => createCheckbox(letter, 'letter', lettersOptionsDiv));
+}
 
-    const label = document.createElement('label');
-    label.htmlFor = input.id;
-    label.className = 'checkbox-label text-xl flex items-center justify-center w-full';
-    label.innerHTML = `${vowel.char} <span class="text-sm mr-2 text-gray-500">(${vowel.display})</span>`;
-
-    container.appendChild(input);
-    container.appendChild(label);
-    vowelsOptionsDiv.appendChild(container);
-  });
-
-  document.getElementById('include-dagesh').onchange = updateAllowedSyllables;
-  document.getElementById('include-final').onchange = updateAllowedSyllables;
+function createFloatingEmojis() {
+    const container = document.body;
+    for (let i = 0; i < 15; i++) {
+        const emoji = document.createElement('div');
+        emoji.className = 'bg-emoji';
+        emoji.textContent = EMOJIS[i % EMOJIS.length];
+        emoji.style.left = `${Math.random() * 100}vw`;
+        emoji.style.top = `${Math.random() * 100}vh`;
+        emoji.style.fontSize = `${Math.random() * 2 + 2}rem`;
+        emoji.style.animationDuration = `${Math.random() * 5 + 5}s`;
+        emoji.style.animationDelay = `${Math.random() * -5}s`;
+        emoji.style.animationName = Math.random() > 0.5 ? 'float' : 'float-side-to-side';
+        container.appendChild(emoji);
+    }
 }
 
 function startGame() {
-  if (allowedSyllables.length === 0) {
-    filterError.classList.remove('hidden');
-    return;
-  }
+  if (allowedSyllables.length < NUM_OPTIONS) return;
   configScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
-  messageBox.textContent = 'מתחילים! לחץ/י על הרמקול';
+  messageBox.textContent = 'מתחילים! לחץ על הרמקול';
   correctScore = 0;
   totalScore = 0;
   correctScoreSpan.textContent = '0';
@@ -313,21 +256,14 @@ function backToConfig() {
 async function init() {
   initDOMReferences();
   initializeVowelsUI();
-  try {
-    await loadManifest();
-    updateAllowedSyllables();
-  } catch (e) {
-    console.error(e);
-    messageBox.textContent = e.message;
-    startGameBtn.disabled = true;
-  }
+  initializeLettersUI();
+  await loadManifest();
+  updateAllowedSyllables();
 }
 
-// Export functions for HTML onclick handlers
+// Export for HTML onclicks
 window.startGame = startGame;
 window.playCurrentSyllable = playCurrentSyllable;
-window.checkAnswer = checkAnswer;
 window.backToConfig = backToConfig;
 
-// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);
