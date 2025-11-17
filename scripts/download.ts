@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,12 +22,21 @@ interface SyllableData {
   prompt: string;
 }
 
-const API_KEY = process.env.GEMINI_API_KEY || '';
-const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
+type TTSProvider = 'gemini' | 'edge';
+
+// Configuration
 const OUTPUT_DIR = path.join(ROOT_DIR, 'assets', 'audio');
 const MANIFEST_FILE = path.join(ROOT_DIR, 'assets', 'audio_manifest.json');
-const VOICE = 'Kore';
 const MAX_RETRIES = 5;
+
+// Gemini-specific config
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
+const GEMINI_VOICE = 'Kore';
+
+// Edge TTS config
+const EDGE_VOICE = process.env.EDGE_VOICE || 'he-IL-HilaNeural';
+const EDGE_RATE = process.env.EDGE_RATE || '-30%'; // Slower speech
 
 const VOWELS: VowelDef[] = [
   { char: '\u05B8', name: 'kamatz', code: 'a' },
@@ -81,7 +94,7 @@ function pcmToWav(pcm16Buffer: Buffer, sampleRate: number): Buffer {
   return buffer;
 }
 
-async function fetchPcmAudio(text: string, attempt = 1): Promise<Buffer> {
+async function fetchGeminiAudio(text: string, attempt = 1): Promise<Buffer> {
   if (attempt > MAX_RETRIES) {
     throw new Error(`Failed to fetch audio for '${text}' after ${MAX_RETRIES} attempts.`);
   }
@@ -95,7 +108,7 @@ async function fetchPcmAudio(text: string, attempt = 1): Promise<Buffer> {
       responseModalities: ['AUDIO'],
       speechConfig: {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: VOICE }
+          prebuiltVoiceConfig: { voiceName: GEMINI_VOICE }
         }
       }
     },
@@ -105,7 +118,7 @@ async function fetchPcmAudio(text: string, attempt = 1): Promise<Buffer> {
   const delay = Math.pow(2, attempt) * 1000;
 
   try {
-    const response = await fetch(`${BASE_URL}?key=${API_KEY}`, {
+    const response = await fetch(`${GEMINI_BASE_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -130,7 +143,7 @@ async function fetchPcmAudio(text: string, attempt = 1): Promise<Buffer> {
       if (response.status === 429) {
         console.log(`Retrying after ${delay / 1000}s...`);
         await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchPcmAudio(text, attempt + 1);
+        return fetchGeminiAudio(text, attempt + 1);
       }
       throw new Error(`API Request failed with status ${response.status}`);
     }
@@ -144,14 +157,40 @@ async function fetchPcmAudio(text: string, attempt = 1): Promise<Buffer> {
     } else {
       console.warn(`Attempt ${attempt}: TTS structural failure for '${text}'. Retrying after ${delay / 1000}s...`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return fetchPcmAudio(text, attempt + 1);
+      return fetchGeminiAudio(text, attempt + 1);
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Attempt ${attempt}: Network/Fetch Error for '${text}':`, errorMessage);
     console.log(`Retrying after ${delay / 1000}s...`);
     await new Promise(resolve => setTimeout(resolve, delay));
-    return fetchPcmAudio(text, attempt + 1);
+    return fetchGeminiAudio(text, attempt + 1);
+  }
+}
+
+async function fetchEdgeAudio(text: string, outputPath: string, attempt = 1): Promise<void> {
+  if (attempt > MAX_RETRIES) {
+    throw new Error(`Failed to fetch audio for '${text}' after ${MAX_RETRIES} attempts.`);
+  }
+
+  const delay = Math.pow(2, attempt) * 1000;
+
+  try {
+    // Escape the text for shell - just use the syllable directly
+    const escapedText = text.replace(/'/g, "'\\''");
+
+    await execAsync(`edge-tts --voice "${EDGE_VOICE}" --rate='${EDGE_RATE}' --text '${escapedText}' --write-media "${outputPath}"`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    if (errorMessage.includes('edge-tts: not found') || errorMessage.includes('command not found')) {
+      throw new Error('edge-tts is not installed. Run: pip install edge-tts');
+    }
+
+    console.error(`Attempt ${attempt}: Edge TTS Error for '${text}':`, errorMessage);
+    console.log(`Retrying after ${delay / 1000}s...`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return fetchEdgeAudio(text, outputPath, attempt + 1);
   }
 }
 
@@ -209,10 +248,49 @@ function generateSyllableData(): { syllables: SyllableData[]; syllableMap: Map<s
   return { syllables, syllableMap };
 }
 
+function parseArgs(): { provider: TTSProvider } {
+  const args = process.argv.slice(2);
+  let provider: TTSProvider = 'gemini';
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--provider' && args[i + 1]) {
+      const p = args[i + 1].toLowerCase();
+      if (p === 'gemini' || p === 'edge') {
+        provider = p;
+      } else {
+        console.error(`Unknown provider: ${p}. Use 'gemini' or 'edge'.`);
+        process.exit(1);
+      }
+    }
+  }
+
+  return { provider };
+}
+
 async function main(): Promise<void> {
-  if (!API_KEY) {
+  const { provider } = parseArgs();
+
+  console.log(`Using TTS provider: ${provider}`);
+
+  if (provider === 'gemini' && !GEMINI_API_KEY) {
     console.error('ERROR: Please set the GEMINI_API_KEY environment variable.');
     process.exit(1);
+  }
+
+  if (provider === 'edge') {
+    // Check if edge-tts is installed
+    try {
+      await execAsync('edge-tts --list-voices | head -1');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('not found') || errorMessage.includes('command not found')) {
+        console.error('ERROR: edge-tts is not installed.');
+        console.error('Install it with: pip install edge-tts');
+        process.exit(1);
+      }
+      // If it's some other error, edge-tts is probably installed
+    }
+    console.log(`Using Edge TTS voice: ${EDGE_VOICE}`);
   }
 
   if (!fs.existsSync(OUTPUT_DIR)) {
@@ -229,24 +307,41 @@ async function main(): Promise<void> {
 
   for (let i = 0; i < syllables.length; i++) {
     const { syllable, filename, prompt } = syllables[i];
-    const filePath = path.join(OUTPUT_DIR, filename);
+    // Edge TTS outputs MP3 (smaller, better browser support), Gemini outputs WAV
+    const actualFilename = provider === 'edge' ? filename.replace('.wav', '.mp3') : filename;
+    const filePath = path.join(OUTPUT_DIR, actualFilename);
 
-    if (fs.existsSync(filePath)) {
+    // Check for both .wav and .mp3 versions (in case of mixed providers)
+    const wavPath = path.join(OUTPUT_DIR, filename);
+    const mp3Path = path.join(OUTPUT_DIR, filename.replace('.wav', '.mp3'));
+
+    if (fs.existsSync(wavPath)) {
       manifestData[syllable] = filename;
       successCount++;
       continue;
     }
 
-    console.log(`[${i + 1}/${syllables.length}] Generating '${syllable}' (${filename})...`);
+    if (fs.existsSync(mp3Path)) {
+      manifestData[syllable] = filename.replace('.wav', '.mp3');
+      successCount++;
+      continue;
+    }
+
+    console.log(`[${i + 1}/${syllables.length}] Generating '${syllable}' (${actualFilename})...`);
 
     try {
-      const pcmData = await fetchPcmAudio(prompt);
-      const wavBuffer = pcmToWav(pcmData, 24000);
-      fs.writeFileSync(filePath, wavBuffer);
+      if (provider === 'gemini') {
+        const pcmData = await fetchGeminiAudio(prompt);
+        const wavBuffer = pcmToWav(pcmData, 24000);
+        fs.writeFileSync(filePath, wavBuffer);
+      } else {
+        // Edge TTS - outputs MP3 directly
+        await fetchEdgeAudio(prompt, filePath);
+      }
 
-      manifestData[syllable] = filename;
+      manifestData[syllable] = actualFilename;
       successCount++;
-      console.log(`Successfully saved: ${filename}`);
+      console.log(`Successfully saved: ${actualFilename}`);
     } catch (error) {
       failCount++;
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -257,6 +352,7 @@ async function main(): Promise<void> {
   fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifestData, null, 2));
 
   console.log('\n--- Generation Summary ---');
+  console.log(`Provider: ${provider}`);
   console.log(`Total Syllables: ${syllables.length}`);
   console.log(`Successful Files: ${successCount}`);
   console.log(`Failed Files: ${failCount}`);

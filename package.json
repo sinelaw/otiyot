@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "download": "npx tsx scripts/download.ts",
+    "download:edge": "npx tsx scripts/download.ts --provider edge",
+    "download:gemini": "npx tsx scripts/download.ts --provider gemini",
     "build": "npx tsx scripts/build.ts",
     "publish": "npx wrangler pages deploy dist --project-name=hebrew-letters"
   },
