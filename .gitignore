@@ -1,5 +1,4 @@
 node_modules/
 dist/
-assets/audio/
 *.log
 .DS_Store
