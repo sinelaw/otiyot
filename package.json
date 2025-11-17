@@ -1,0 +1,19 @@
+{
+  "name": "hebrew-letters-game",
+  "version": "1.0.0",
+  "description": "Hebrew reading education game for first grade",
+  "type": "module",
+  "scripts": {
+    "download": "npx tsx scripts/download.ts",
+    "build": "npx tsx scripts/build.ts",
+    "publish": "npx wrangler pages deploy dist --project-name=hebrew-letters"
+  },
+  "devDependencies": {
+    "@cloudflare/wrangler": "^3.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
