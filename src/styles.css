@@ -28,10 +28,8 @@ body {
 
 /* --- Main Title (outside frame) --- */
 .main-title {
-  position: absolute;
-  top: 5px; /* Moved further up */
-  left: 50%;
-  transform: translateX(-50%);
+    text-align: center;
+    margin: 0;
   font-size: 1.8rem; /* Smaller font */
   font-weight: 900;
   color: var(--text-dark);
@@ -61,7 +59,6 @@ body {
   margin: auto;
   position: relative;
   z-index: 1;
-  margin-top: 20px; /* Make space for the title */
 }
 
 #app-container {
@@ -380,8 +377,6 @@ input[type="checkbox"] {
   }
 
   .main-container {
-    margin-top: 70px;
-    padding: 1rem;
   }
 
   #config-screen h3 {
