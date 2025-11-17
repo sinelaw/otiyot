@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>משחק אותיות וניקוד לכיתה א'</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,15 +15,18 @@
   <div class="bg-emoji bg-emoji-5">🎪</div>
   <div class="bg-emoji bg-emoji-6">🎨</div>
 
-  <div class="main-container">
-    <header>
-      <h1>לימוד הקריאה בכיתה א'</h1>
-      <p>משחק האות והניקוד: השמע ובחר נכון!</p>
-    </header>
+  <h1 class="main-title">לימוד הקריאה בכיתה א'</h1>
 
+  <div class="main-container">
     <div id="app-container">
       <!-- Configuration Screen -->
       <div id="config-screen">
+        <div class="start-game-wrapper">
+          <button id="start-game-btn-top" onclick="startGame()" disabled>
+            <i class="fas fa-play"></i> התחל משחק
+          </button>
+        </div>
+
         <h2 class="section-title">סינון אותיות וניקוד</h2>
 
         <div>
@@ -37,8 +39,8 @@
           <div id="letters-options"></div>
         </div>
 
-        <div>
-          <button id="start-game-btn" onclick="startGame()" disabled>
+        <div class="start-game-wrapper">
+          <button id="start-game-btn-bottom" onclick="startGame()" disabled>
             <i class="fas fa-play"></i> התחל משחק
           </button>
           <p id="filter-error" class="hidden">אנא בחר/י לפחות ניקוד ואות אחת.</p>

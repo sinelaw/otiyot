@@ -20,17 +20,19 @@ let allowedSyllables = [];
 let currentSyllable = '';
 let correctScore = 0;
 let totalScore = 0;
+let currentAudio = null; // To manage audio playback
 let isAudioPlaying = false;
 
 // DOM elements
-let configScreen, gameScreen, vowelsOptionsDiv, lettersOptionsDiv, startGameBtn, playSoundBtn, optionsGrid, messageBox, correctScoreSpan, totalScoreSpan, playIcon, loadingSpinner, filterError;
+let configScreen, gameScreen, vowelsOptionsDiv, lettersOptionsDiv, startGameBtnTop, startGameBtnBottom, playSoundBtn, optionsGrid, messageBox, correctScoreSpan, totalScoreSpan, playIcon, loadingSpinner, filterError;
 
 function initDOMReferences() {
   configScreen = document.getElementById('config-screen');
   gameScreen = document.getElementById('game-screen');
   vowelsOptionsDiv = document.getElementById('vowels-options');
   lettersOptionsDiv = document.getElementById('letters-options');
-  startGameBtn = document.getElementById('start-game-btn');
+  startGameBtnTop = document.getElementById('start-game-btn-top');
+  startGameBtnBottom = document.getElementById('start-game-btn-bottom');
   playSoundBtn = document.getElementById('play-sound-btn');
   optionsGrid = document.getElementById('options-grid');
   messageBox = document.getElementById('message-box');
@@ -50,7 +52,8 @@ async function loadManifest() {
   } catch (error) {
     console.error(error);
     messageBox.textContent = 'שגיאה חמורה בטעינת המשחק. נסה לרענן את הדף.';
-    startGameBtn.disabled = true;
+    startGameBtnTop.disabled = true;
+    startGameBtnBottom.disabled = true;
   }
 }
 
@@ -63,8 +66,16 @@ function playLocalAudio(syllable) {
     return;
   }
 
+  // Stop current audio if playing
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  }
+
   try {
     const audio = new Audio(`./audio/${filename}`);
+    currentAudio = audio; // Store reference to current audio
+
     audio.onplaying = () => {
       isAudioPlaying = true;
       setLoading(false);
@@ -95,7 +106,7 @@ function setLoading(isLoading) {
 }
 
 function playCurrentSyllable() {
-  if (!currentSyllable || isAudioPlaying) return;
+  if (!currentSyllable) return; // Removed isAudioPlaying check to allow replaying
   setLoading(true);
   messageBox.textContent = '...מאזינים';
   playLocalAudio(currentSyllable);
@@ -106,7 +117,8 @@ function updateAllowedSyllables() {
   const selectedLetters = Array.from(document.querySelectorAll('#letters-options input:checked')).map(cb => cb.value);
 
   if (selectedVowels.length === 0 || selectedLetters.length === 0) {
-    startGameBtn.disabled = true;
+    startGameBtnTop.disabled = true;
+    startGameBtnBottom.disabled = true;
     filterError.classList.remove('hidden');
     allowedSyllables = [];
     return;
@@ -131,8 +143,11 @@ function updateAllowedSyllables() {
 
   allowedSyllables = [...potentialSyllables].filter(s => audioManifest[s]);
   
-  startGameBtn.disabled = allowedSyllables.length < NUM_OPTIONS;
-  if (startGameBtn.disabled) {
+  const disableButtons = allowedSyllables.length < NUM_OPTIONS;
+  startGameBtnTop.disabled = disableButtons;
+  startGameBtnBottom.disabled = disableButtons;
+
+  if (disableButtons) {
     filterError.textContent = `לא נמצאו מספיק הברות (${allowedSyllables.length} מתוך ${NUM_OPTIONS} דרושות). נסה אפשרויות סינון אחרות.`;
     filterError.classList.remove('hidden');
   } else {
@@ -204,7 +219,7 @@ function createCheckbox(item, groupName, container, defaultChecked = true) {
     const label = document.createElement('label');
     label.htmlFor = input.id;
     label.className = 'checkbox-label';
-    label.textContent = item.name || item;
+    label.innerHTML = `${item.char || item} <span class="vowel-name">${item.name || ''}</span>`; // Show char and name
 
     div.appendChild(input);
     div.appendChild(label);

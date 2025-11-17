@@ -10,6 +10,8 @@
   --cloud-white: #ffffff;
   --text-dark: #222222;
   --pixel-border: 3px solid var(--text-dark);
+  --blue-button: #007bff; /* New blue color for start button */
+  --blue-button-shadow: #0056b3;
 }
 
 /* General Body and Layout */
@@ -21,6 +23,24 @@ body {
   position: relative;
   overflow-x: hidden;
   min-height: 100vh;
+}
+
+/* --- Main Title (outside frame) --- */
+.main-title {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2.2rem; /* Slightly smaller to take less space */
+  font-weight: 900;
+  color: var(--text-dark);
+  text-shadow: 2px 2px 0px var(--cloud-white);
+  z-index: 10;
+  white-space: nowrap;
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: var(--pixel-border);
+  border-radius: 5px;
 }
 
 /* --- Static Emojis --- */
@@ -53,36 +73,11 @@ body {
   border: var(--pixel-border);
   position: relative;
   z-index: 1;
+  margin-top: 100px; /* Make space for the title */
 }
 
 #app-container {
   position: relative;
-}
-
-/* Header */
-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: var(--pixel-border);
-  background-color: var(--sun-yellow);
-  padding: 1.5rem;
-  margin: -1.5rem -1.5rem 2rem -1.5rem;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-}
-
-header h1 {
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: var(--text-dark);
-  text-shadow: 2px 2px 0px var(--cloud-white);
-}
-
-header p {
-  font-size: 1.2rem;
-  color: var(--text-dark);
-  margin-top: 0.5rem;
 }
 
 /* Shared Styles */
@@ -124,59 +119,96 @@ header p {
 
 #vowels-options, #letters-options {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); /* Smaller buttons */
+  gap: 0.5rem; /* Smaller gap */
 }
 
 .checkbox-label {
   cursor: pointer;
-  padding: 1rem 0.5rem;
+  padding: 0.5rem 0.3rem; /* Smaller padding */
   border: var(--pixel-border);
   background-color: var(--cloud-white);
   transition: all 0.1s;
   font-weight: 700;
-  font-size: 1.2rem;
-  display: block;
-  text-align: center;
-  box-shadow: 0 4px 0 var(--text-dark);
+  font-size: 1rem; /* Smaller font */
+  display: flex; /* Use flex for icon and text alignment */
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 0 var(--text-dark); /* Smaller shadow */
   border-radius: 4px;
+  position: relative;
 }
 .checkbox-label:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 0 var(--text-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 var(--text-dark);
 }
 .checkbox-label:active {
-  transform: translateY(2px);
+  transform: translateY(1px);
   box-shadow: 0 2px 0 var(--text-dark);
 }
 
 input[type="checkbox"]:checked + .checkbox-label {
-  background-color: var(--sun-yellow);
+  background-color: #d4edda; /* Light green for enabled */
+  border-color: #28a745; /* Green border */
   color: var(--text-dark);
+  box-shadow: 0 3px 0 #28a745;
+}
+input[type="checkbox"]:checked + .checkbox-label::after {
+  content: '\f00c'; /* Checkmark icon */
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute;
+  left: 5px;
+  color: #28a745;
+  font-size: 0.8em;
 }
 
-#start-game-btn {
+input[type="checkbox"]:not(:checked) + .checkbox-label {
+  background-color: #f8d7da; /* Light red for disabled */
+  border-color: #dc3545; /* Red border */
   color: var(--text-dark);
-  font-size: 1.5rem;
+  box-shadow: 0 3px 0 #dc3545;
+}
+input[type="checkbox"]:not(:checked) + .checkbox-label::after {
+  content: '\f00d'; /* X icon */
+  font-family: 'Font Awesome 6 Free';
   font-weight: 900;
-  padding: 1rem 2.5rem;
+  position: absolute;
+  left: 5px;
+  color: #dc3545;
+  font-size: 0.8em;
+}
+
+
+.start-game-wrapper {
+    text-align: center;
+    margin-top: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+#start-game-btn-top, #start-game-btn-bottom {
+  color: var(--cloud-white);
+  font-size: 1.2rem; /* Smaller font */
+  font-weight: 900;
+  padding: 0.8rem 2rem; /* Smaller padding */
   border-radius: 8px;
-  background-color: var(--sun-yellow);
-  box-shadow: 0 6px 0 var(--text-dark);
+  background-color: var(--blue-button); /* Blue color */
+  box-shadow: 0 6px 0 var(--blue-button-shadow);
   transition: all 0.1s;
   border: var(--pixel-border);
   text-transform: uppercase;
   width: 100%;
+  max-width: 300px; /* Limit width */
 }
-#start-game-btn:hover:not(:disabled) {
+#start-game-btn-top:hover:not(:disabled), #start-game-btn-bottom:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 0 var(--text-dark);
+  box-shadow: 0 8px 0 var(--blue-button-shadow);
 }
-#start-game-btn:active:not(:disabled) {
+#start-game-btn-top:active:not(:disabled), #start-game-btn-bottom:active:not(:disabled) {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 var(--text-dark);
+  box-shadow: 0 2px 0 var(--blue-button-shadow);
 }
-#start-game-btn:disabled {
+#start-game-btn-top:disabled, #start-game-btn-bottom:disabled {
   background-color: #aaa;
   color: #555;
   cursor: not-allowed;
