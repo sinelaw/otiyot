@@ -59,6 +59,7 @@ body {
   margin: auto;
   position: relative;
   z-index: 1;
+  margin-top: 70px; /* Make space for the title */
 }
 
 #app-container {
