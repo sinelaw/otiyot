@@ -2,20 +2,18 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>משחק אותיות וניקוד לכיתה א'</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <title>שמע ולחץ</title>  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <!-- Background decorative emojis -->
-  <div class="bg-emoji bg-emoji-1">🌟</div>
-  <div class="bg-emoji bg-emoji-2">🎈</div>
-  <div class="bg-emoji bg-emoji-3">🦄</div>
-  <div class="bg-emoji bg-emoji-4">🌈</div>
-  <div class="bg-emoji bg-emoji-5">🎪</div>
-  <div class="bg-emoji bg-emoji-6">🎨</div>
+  <div class="bg-emoji" style="top: 5%; left: 8%; font-size: 15rem; transform: rotate(-20deg);">✨</div>
+  <div class="bg-emoji" style="top: 15%; right: 10%; font-size: 12rem; transform: rotate(15deg);">🌟</div>
+  <div class="bg-emoji" style="top: 40%; left: 5%; font-size: 10rem; transform: rotate(5deg);">🎈</div>
+  <div class="bg-emoji" style="top: 60%; right: 8%; font-size: 13rem; transform: rotate(-10deg);">🌈</div>
+  <div class="bg-emoji" style="bottom: 5%; left: 45%; font-size: 16rem; transform: rotate(25deg);">🎨</div>
 
-  <h1 class="main-title">לימוד הקריאה בכיתה א'</h1>
+  <h1 class="main-title">✨ שמע ולחץ 🌟</h1>
 
   <div class="main-container">
     <div id="app-container">
@@ -23,11 +21,11 @@
       <div id="config-screen">
         <div class="start-game-wrapper">
           <button id="start-game-btn-top" onclick="startGame()" disabled>
-            <i class="fas fa-play"></i> התחל משחק
+            ▶️ התחל משחק
           </button>
         </div>
 
-        <h2 class="section-title">סינון אותיות וניקוד</h2>
+
 
         <div>
           <h3>ניקודים:</h3>
@@ -41,7 +39,7 @@
 
         <div class="start-game-wrapper">
           <button id="start-game-btn-bottom" onclick="startGame()" disabled>
-            <i class="fas fa-play"></i> התחל משחק
+            ▶️ התחל משחק
           </button>
           <p id="filter-error" class="hidden">אנא בחר/י לפחות ניקוד ואות אחת.</p>
         </div>
@@ -49,26 +47,27 @@
 
       <!-- Game Screen -->
       <div id="game-screen" class="hidden">
-        <h2 class="section-title">2. בחר/י את ההברה!</h2>
+
+
+
+        <div class="sound-container">
+          <button id="play-sound-btn" onclick="playCurrentSyllable()">
+            <span id="play-icon">🔊</span>
+            <span id="loading-spinner" class="hidden loading-ring"></span>
+          </button>
+          <div id="message-box"></div>
+        </div>
+
+        <div id="options-grid"></div>
 
         <div class="game-header">
           <button onclick="backToConfig()" class="back-button">
-            <i class="fas fa-arrow-right"></i> חזור
+            ⬅️ חזור
           </button>
           <p>
             ניקוד: <span id="correct-score">0</span> / <span id="total-score">0</span>
           </p>
         </div>
-
-        <div class="sound-container">
-          <button id="play-sound-btn" onclick="playCurrentSyllable()">
-            <i id="play-icon" class="fas fa-volume-up"></i>
-            <span id="loading-spinner" class="hidden loading-ring"></span>
-          </button>
-          <div id="message-box">טוען נתוני אודיו...</div>
-        </div>
-
-        <div id="options-grid"></div>
       </div>
     </div>
   </div>

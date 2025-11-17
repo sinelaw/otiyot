@@ -12,6 +12,7 @@ const VOWELS = [
 ];
 
 const ALL_LETTERS = ['א', 'ב', 'בּ', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'כ', 'כּ', 'ך', 'ל', 'מ', 'ם', 'נ', 'ן', 'ס', 'ע', 'פ', 'פּ', 'ף', 'צ', 'ץ', 'ק', 'ר', 'ש', 'ת'];
+
 const NUM_OPTIONS = 4;
 
 // Game state
@@ -102,13 +103,14 @@ function setLoading(isLoading) {
   playIcon.classList.toggle('hidden', isLoading);
   loadingSpinner.classList.toggle('hidden', !isLoading);
   playSoundBtn.disabled = isLoading;
+  playSoundBtn.classList.toggle('is-playing-animation', isLoading); // Toggle animation class
   optionsGrid.querySelectorAll('button').forEach(btn => btn.disabled = isLoading);
 }
 
 function playCurrentSyllable() {
   if (!currentSyllable) return; // Removed isAudioPlaying check to allow replaying
   setLoading(true);
-  messageBox.textContent = '...מאזינים';
+  messageBox.textContent = ''; // Removed text
   playLocalAudio(currentSyllable);
 }
 
@@ -180,8 +182,9 @@ function nextRound() {
     optionsGrid.appendChild(btn);
   });
 
-  messageBox.textContent = 'לחץ על הרמקול!';
+  messageBox.textContent = '';
   playSoundBtn.disabled = false;
+  playCurrentSyllable(); // Automatically play sound for the new question
 }
 
 function checkAnswer(chosenSyllable, btn) {
@@ -189,22 +192,28 @@ function checkAnswer(chosenSyllable, btn) {
   playSoundBtn.disabled = true;
   totalScore++;
 
-  if (chosenSyllable === currentSyllable) {
+  const isCorrect = (chosenSyllable === currentSyllable);
+
+  if (isCorrect) {
     correctScore++;
     messageBox.innerHTML = 'כל הכבוד! נכון!';
     btn.classList.add('correct');
+    correctScoreSpan.textContent = correctScore;
+    totalScoreSpan.textContent = totalScore;
+    setTimeout(() => {
+      btn.classList.remove('correct');
+      nextRound();
+    }, 2000);
   } else {
-    messageBox.innerHTML = `אופס! התשובה הנכונה: <span class="correct-answer">${currentSyllable}</span>`;
+    messageBox.innerHTML = `לא נכון`;
     btn.classList.add('incorrect');
-    optionsGrid.querySelectorAll('button').forEach(b => {
-      if (b.textContent === currentSyllable) b.classList.add('correct');
-    });
+    totalScoreSpan.textContent = totalScore;
+    setTimeout(() => {
+      btn.classList.remove('incorrect');
+      optionsGrid.querySelectorAll('button').forEach(b => b.disabled = false);
+      playSoundBtn.disabled = false;
+    }, 2000);
   }
-
-  correctScoreSpan.textContent = correctScore;
-  totalScoreSpan.textContent = totalScore;
-
-  setTimeout(nextRound, 2000);
 }
 
 function createCheckbox(item, groupName, container, defaultChecked = true) {
@@ -219,7 +228,12 @@ function createCheckbox(item, groupName, container, defaultChecked = true) {
     const label = document.createElement('label');
     label.htmlFor = input.id;
     label.className = 'checkbox-label';
-    label.innerHTML = `${item.char || item} <span class="vowel-name">${item.name || ''}</span>`; // Show char and name
+    let displayChar = item.char || item;
+    if (groupName === 'vowel' && displayChar !== 'וּ' && displayChar !== 'ו\u05B9') {
+        displayChar = 'א' + displayChar; // Prepend 'א' to the vowel character
+    }
+
+    label.innerHTML = `<span class="vowel-char">${displayChar}</span>&nbsp;<span class="vowel-name">${item.name || ''}</span>`; // Show char and name
 
     div.appendChild(input);
     div.appendChild(label);
@@ -234,27 +248,13 @@ function initializeLettersUI() {
   ALL_LETTERS.forEach(letter => createCheckbox(letter, 'letter', lettersOptionsDiv));
 }
 
-function createFloatingEmojis() {
-    const container = document.body;
-    for (let i = 0; i < 15; i++) {
-        const emoji = document.createElement('div');
-        emoji.className = 'bg-emoji';
-        emoji.textContent = EMOJIS[i % EMOJIS.length];
-        emoji.style.left = `${Math.random() * 100}vw`;
-        emoji.style.top = `${Math.random() * 100}vh`;
-        emoji.style.fontSize = `${Math.random() * 2 + 2}rem`;
-        emoji.style.animationDuration = `${Math.random() * 5 + 5}s`;
-        emoji.style.animationDelay = `${Math.random() * -5}s`;
-        emoji.style.animationName = Math.random() > 0.5 ? 'float' : 'float-side-to-side';
-        container.appendChild(emoji);
-    }
-}
+
 
 function startGame() {
   if (allowedSyllables.length < NUM_OPTIONS) return;
   configScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
-  messageBox.textContent = 'מתחילים! לחץ על הרמקול';
+  messageBox.textContent = 'מתחילים!';
   correctScore = 0;
   totalScore = 0;
   correctScoreSpan.textContent = '0';
