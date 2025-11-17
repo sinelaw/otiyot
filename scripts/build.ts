@@ -9,6 +9,15 @@ const ROOT_DIR = path.join(__dirname, '..');
 const SRC_DIR = path.join(ROOT_DIR, 'src');
 const ASSETS_DIR = path.join(ROOT_DIR, 'assets');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const EMOJI_CACHE_DIR = path.join(ASSETS_DIR, 'emoji');
+const EMOJI_DIST_DIR = path.join(DIST_DIR, 'emoji');
+
+// Twemoji CDN base URL (using latest version)
+const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg';
+
+interface EmojiConfig {
+  emojis: string[];
+}
 
 function ensureDir(dir: string): void {
   if (!fs.existsSync(dir)) {
@@ -66,9 +75,9 @@ function checkRequiredAssets(): boolean {
     return false;
   }
 
-  const audioFiles = fs.readdirSync(audioDir).filter(f => f.endsWith('.wav'));
+  const audioFiles = fs.readdirSync(audioDir).filter(f => f.endsWith('.wav') || f.endsWith('.mp3'));
   if (audioFiles.length === 0) {
-    console.error('ERROR: No .wav files found in assets/audio/');
+    console.error('ERROR: No audio files (.wav or .mp3) found in assets/audio/');
     console.error('Run "npm run download" first to generate audio files.');
     return false;
   }
@@ -77,7 +86,103 @@ function checkRequiredAssets(): boolean {
   return true;
 }
 
-function build(): void {
+function emojiToCodePoints(emoji: string): string {
+  const codePoints: string[] = [];
+  for (const char of emoji) {
+    const codePoint = char.codePointAt(0);
+    if (codePoint !== undefined && codePoint !== 0xfe0f) { // Skip variation selector
+      codePoints.push(codePoint.toString(16));
+    }
+  }
+  return codePoints.join('-');
+}
+
+async function downloadEmoji(emoji: string, destPath: string): Promise<void> {
+  const codePoints = emojiToCodePoints(emoji);
+  const url = `${TWEMOJI_BASE}/${codePoints}.svg`;
+
+  console.log(`Downloading emoji ${emoji} (${codePoints}) from ${url}`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download emoji ${emoji}: ${response.status} ${response.statusText}`);
+  }
+
+  const svgContent = await response.text();
+  fs.writeFileSync(destPath, svgContent);
+}
+
+async function processEmojis(): Promise<Map<string, string>> {
+  const emojiMap = new Map<string, string>();
+  const emojiConfigPath = path.join(SRC_DIR, 'emojis.json');
+
+  if (!fs.existsSync(emojiConfigPath)) {
+    console.log('No emojis.json found, skipping emoji processing');
+    return emojiMap;
+  }
+
+  const config = JSON.parse(fs.readFileSync(emojiConfigPath, 'utf-8')) as EmojiConfig;
+  if (!config.emojis || config.emojis.length === 0) {
+    console.log('No emojis specified in emojis.json');
+    return emojiMap;
+  }
+
+  // Use cache dir in assets (survives dist clean), copy to dist
+  ensureDir(EMOJI_CACHE_DIR);
+  ensureDir(EMOJI_DIST_DIR);
+
+  console.log(`Processing ${config.emojis.length} emojis...`);
+
+  for (const emoji of config.emojis) {
+    const codePoints = emojiToCodePoints(emoji);
+    const filename = `${codePoints}.svg`;
+    const cachePath = path.join(EMOJI_CACHE_DIR, filename);
+    const distPath = path.join(EMOJI_DIST_DIR, filename);
+
+    try {
+      if (fs.existsSync(cachePath)) {
+        console.log(`  ${emoji} -> ${filename} (cached)`);
+      } else {
+        await downloadEmoji(emoji, cachePath);
+        console.log(`  ${emoji} -> ${filename} (downloaded)`);
+      }
+      // Copy from cache to dist
+      fs.copyFileSync(cachePath, distPath);
+      emojiMap.set(emoji, `emoji/${filename}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`  Failed to download ${emoji}: ${errorMessage}`);
+    }
+  }
+
+  return emojiMap;
+}
+
+function replaceEmojisInCSS(content: string, emojiMap: Map<string, string>): string {
+  let result = content;
+
+  for (const [emoji, svgPath] of emojiMap) {
+    // Replace emoji in content property: content: 'emoji' -> content: url(path)
+    const contentRegex = new RegExp(`content:\\s*['"]${emoji}['"]`, 'g');
+    result = result.replace(contentRegex, `content: url('${svgPath}')`);
+  }
+
+  return result;
+}
+
+function replaceEmojisInHTML(content: string, emojiMap: Map<string, string>): string {
+  let result = content;
+
+  for (const [emoji, svgPath] of emojiMap) {
+    // Replace direct emoji usage with img tag
+    const emojiRegex = new RegExp(emoji, 'g');
+    result = result.replace(emojiRegex, `<img src="${svgPath}" alt="${emoji}" class="inline-emoji" />`);
+  }
+
+  return result;
+}
+
+async function build(): Promise<void> {
   console.log('Building dist directory...\n');
 
   if (!checkRequiredAssets()) {
@@ -87,9 +192,38 @@ function build(): void {
   cleanDist();
   ensureDir(DIST_DIR);
 
-  // Copy source files
-  copyFile(path.join(SRC_DIR, 'index.html'), path.join(DIST_DIR, 'index.html'));
-  copyFile(path.join(SRC_DIR, 'styles.css'), path.join(DIST_DIR, 'styles.css'));
+  // Process emojis first
+  const emojiMap = await processEmojis();
+
+  // Process and copy source files with emoji replacement
+  let htmlContent = fs.readFileSync(path.join(SRC_DIR, 'index.html'), 'utf-8');
+  let cssContent = fs.readFileSync(path.join(SRC_DIR, 'styles.css'), 'utf-8');
+
+  if (emojiMap.size > 0) {
+    console.log('\nReplacing emojis in source files...');
+    htmlContent = replaceEmojisInHTML(htmlContent, emojiMap);
+    cssContent = replaceEmojisInCSS(cssContent, emojiMap);
+
+    // Add inline-emoji class to CSS if not present
+    if (!cssContent.includes('.inline-emoji')) {
+      cssContent += `
+/* Inline emoji styling */
+.inline-emoji {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.1em;
+}
+`;
+    }
+  }
+
+  fs.writeFileSync(path.join(DIST_DIR, 'index.html'), htmlContent);
+  console.log(`Processed: src/index.html -> dist/index.html`);
+
+  fs.writeFileSync(path.join(DIST_DIR, 'styles.css'), cssContent);
+  console.log(`Processed: src/styles.css -> dist/styles.css`);
+
   copyFile(path.join(SRC_DIR, 'app.js'), path.join(DIST_DIR, 'app.js'));
 
   // Copy assets
@@ -130,4 +264,7 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-build();
+build().catch(error => {
+  console.error('Build failed:', error);
+  process.exit(1);
+});

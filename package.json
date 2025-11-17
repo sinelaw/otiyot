@@ -8,10 +8,10 @@
     "download:edge": "npx tsx scripts/download.ts --provider edge",
     "download:gemini": "npx tsx scripts/download.ts --provider gemini",
     "build": "npx tsx scripts/build.ts",
-    "publish": "npx wrangler pages deploy dist --project-name=hebrew-letters"
+    "start": "npx http-server dist",
+    "dev": "npm run build && npm run start"
   },
   "devDependencies": {
-    "@cloudflare/wrangler": "^3.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   },
